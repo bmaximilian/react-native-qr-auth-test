@@ -1,5 +1,4 @@
 import express, { Request, Response, NextFunction } from 'express';
-import { join } from 'path';
 import bodyParser from 'body-parser';
 import cookieParser from 'cookie-parser';
 import expressSession from 'express-session';
@@ -9,11 +8,18 @@ import qrCode from 'qrcode';
 
 interface QrCode {
     userId: string;
+    sessionId: string;
 }
 
 const app = express();
 const qrCodeStore: { [id: string]: QrCode } = {};
+const database = {
+    users: [
+        { id: '1', firstName: 'Max', lastName: 'Mustermann', password: 'Test123!', email: 'm.mustermann@example.net' },
+    ],
+};
 
+app.set('view engine', 'ejs');
 app.use(morgan('dev'));
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
@@ -27,7 +33,13 @@ app.use(expressSession({
     }
 }));
 
-function checkSession(req: Request, res: Response, next: NextFunction) {
+function checkSession(req: Request<any, any, any, { token?: string; session?: string }>, res: Response, next: NextFunction) {
+    const code = qrCodeStore[req.query.token];
+    const user = database.users.find(u => u.id === code?.userId);
+    if (req.query.token && code && user) {
+        req.session.user = user;
+    }
+
     if (!req.session.user) {
         res.redirect('/');
     } else {
@@ -35,50 +47,62 @@ function checkSession(req: Request, res: Response, next: NextFunction) {
     }
 }
 
-app.use((req: Request, _: Response, next: NextFunction) => {
-    console.log(req.session);
-    console.log(req.session.id);
-    console.log(req.session.user);
-    next();
-});
+app.use('/api/v1', (() => {
+    function login(email: string, password: string): object|undefined {
+        const user = database.users.find(u => u.email === email && u.password === password);
 
-app.get('/login', (req: Request, res: Response) => {
-    req.session.user = { id: 1, firstName: 'Max', lastName: 'Mustermann' };
-    res.redirect('/private.html');
-});
+        return user ? { ...user } : undefined;
+    }
+    const router = express.Router();
+
+    router.post('/login', (req: Request, res: Response) => {
+        if (!req.body.email || !req.body.password) {
+            res.status(422).send({ message: 'Email and password required' });
+            return;
+        }
+
+        const user: any = login(req.body.email, req.body.password);
+        if (!user) {
+            res.status(403).send({ message: 'Forbidden' });
+            return;
+        }
+
+        delete user.password;
+        req.session.user = user;
+        res.send({ session: req.session.id });
+    });
+
+    router.post('/logout', (req: Request, res: Response) => {
+        delete req.session.user;
+        res.send({});
+    });
+
+    return router;
+})());
 
 app.get('/qr-code', checkSession, async (req: Request, res: Response) => {
     const qrCodeValue: QrCode = {
         userId: req.session.user.id,
+        sessionId: req.sessionID,
     };
     const qrCodeId = v4();
 
     qrCodeStore[qrCodeId] = qrCodeValue;
     const generatedQrCode = await qrCode.toDataURL(qrCodeId);
-    res.send(`<img src="${generatedQrCode}">`);
+
+    res.render('qr-code', { code: generatedQrCode });
 });
 
-app.post('/qr-code/redeem', (req: Request, res: Response) => {
-    if (!req.body.code) {
-        res.send('Code not passed').status(422);
+app.get('/', (req: Request, res: Response) => {
+    if (req.session.user && database.users.find(u => u.id === req.session.user.id)) {
+        res.redirect('/qr-code');
         return;
     }
 
-    const code = qrCodeStore[req.body.code];
-    if (!code) {
-        res.send('Forbidden').status(403);
-        return;
-    }
-
-    req.session.user = { id: 1, firstName: 'Max', lastName: 'Mustermann' };
-    res.send({ session: req.session.id });
-});
-
-app.get('/', (_: Request, res: Response) => {
-    res.sendFile(join(__dirname, '..', 'public/index.html'));
+    res.render('index');
 })
 
-app.use(checkSession, express.static(join(__dirname, '..', 'public')));
+// app.use(checkSession, express.static(join(__dirname, '..', 'public')));
 
 app.listen(3000, () => {
     console.log('running on 3000');

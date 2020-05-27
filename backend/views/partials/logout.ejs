@@ -1,0 +1,27 @@
+<form id="logout-form">
+    <button class="mdl-button mdl-js-button mdl-button--raised mdl-button--colored" type="submit">
+        Logout
+    </button>
+</form>
+
+<script>
+    $('#logout-form').on('submit', (e) => {
+        e.preventDefault();
+
+        fetch('/api/v1/logout', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+        })
+        .then(res => {
+            if (res.status >= 400) return res.json().then(res => Promise.reject(res));
+
+            return res.json();
+        })
+        .then(() => {
+            window.location.reload();
+        })
+        .catch(console.log);
+    });
+</script>
