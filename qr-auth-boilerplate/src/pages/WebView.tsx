@@ -1,6 +1,7 @@
 import { Container } from 'native-base';
 import React from 'react';
 import { WebView } from 'react-native-webview';
+import { getUniqueId } from 'react-native-device-info';
 
 interface WebViewPageProps {
     token: string;
@@ -12,12 +13,12 @@ export function WebViewPage(props: WebViewPageProps): JSX.Element {
     meta.setAttribute('content', 'width=device-width, initial-scale=1.0, maximum-scale=1.0');
     meta.setAttribute('name', 'viewport');
     document.getElementsByTagName('head')[0].appendChild(meta);
-  `;
+    `;
 
     return (
         <Container>
             <WebView
-                source={{ uri: `http://192.168.1.236:3000/qr-code?token=${props.token}` }}
+                source={{ uri: `http://192.168.1.236:3000/qr-code?token=${props.token}&deviceId=${getUniqueId()}` }}
                 bounces={false}
                 cacheMode="LOAD_CACHE_ELSE_NETWORK"
                 injectedJavaScript={INJECTED_JAVASCRIPT}

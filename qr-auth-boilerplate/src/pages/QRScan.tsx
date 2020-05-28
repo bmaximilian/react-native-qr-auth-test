@@ -2,6 +2,7 @@ import { Container, Text } from 'native-base';
 import React, { useEffect, useState } from 'react';
 import { StyleSheet, Alert } from 'react-native';
 import { BarCodeEvent, BarCodeScanner } from 'expo-barcode-scanner';
+import { getUniqueId } from 'react-native-device-info';
 
 interface QRScanProps {
     onReceivedAuthToken: (token: string) => void;
@@ -19,11 +20,10 @@ export function QRScan(props: QRScanProps): JSX.Element {
     }, []);
 
     async function handleBarcodeScanned({ data }: BarCodeEvent) {
-        console.log(data);
         setScanned(true);
         const response = await fetch('http://192.168.1.236:3000/api/v1/qr-code/verify', {
             method: 'POST',
-            body: JSON.stringify({ code: data }),
+            body: JSON.stringify({ code: data, deviceId: getUniqueId() }),
             headers: {
                 'Content-Type': 'application/json',
             },
@@ -46,8 +46,6 @@ export function QRScan(props: QRScanProps): JSX.Element {
 
         return <Text>{content}</Text>;
     }
-
-    console.log(scanned);
 
     return (
         <Container>

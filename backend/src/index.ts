@@ -9,6 +9,7 @@ import qrCode from 'qrcode';
 interface QrCode {
     userId: string;
     sessionId: string;
+    deviceId?: string;
 }
 
 const app = express();
@@ -27,19 +28,21 @@ app.use(cookieParser());
 app.use(expressSession({
     secret: 'somerandonstuffs',
     resave: false,
-    saveUninitialized: false,
+    saveUninitialized: true,
     cookie: {
         expires: new Date(new Date().getTime() + 60000),
-    }
+        maxAge: 60000,
+    },
 }));
 
-function checkSession(req: Request<any, any, any, { token?: string; session?: string }>, res: Response, next: NextFunction) {
+function checkSession(req: Request<any, any, any, { token?: string; deviceId?: string }>, res: Response, next: NextFunction) {
     const code = qrCodeStore[req.query.token];
-    delete qrCodeStore[req.query.token];
     const user = database.users.find(u => u.id === code?.userId);
-    if (req.query.token && code && user) {
+    if (req.query.token && code && code.deviceId === req.query.deviceId && user) {
+        console.log('Set user from token');
         req.session.user = user;
     }
+    console.log(req.session.user);
 
     if (!req.session.user) {
         res.redirect('/');
@@ -50,6 +53,8 @@ function checkSession(req: Request<any, any, any, { token?: string; session?: st
 
 app.use('/api/v1', (() => {
     function login(email: string, password: string): object|undefined {
+        console.log(email, password, database.users);
+
         return database.users.find(u => u.email === email && u.password === password);
     }
     const router = express.Router();
@@ -59,6 +64,7 @@ app.use('/api/v1', (() => {
             res.status(422).send({ message: 'Email and password required' });
             return;
         }
+        console.log(JSON.stringify(req.session), req.sessionID);
 
         const user: any = login(req.body.email, req.body.password);
         if (!user) {
@@ -76,16 +82,19 @@ app.use('/api/v1', (() => {
     });
 
     router.post('/qr-code/verify', (req: Request, res: Response) => {
-        if (!req.body.code) {
-            res.status(422).send({ message: 'Code required' });
+        if (!req.body.code || !req.body.deviceId) {
+            res.status(422).send({ message: 'Code and deviceID required' });
             return;
         }
 
-        if (!qrCodeStore[req.body.code]) {
+        if (!qrCodeStore[req.body.code] || qrCodeStore[req.body.code].deviceId) {
             res.status(400).send({ message: 'Code invalid' });
             return;
         }
 
+        console.log(req.body.deviceId);
+        qrCodeStore[req.body.code].deviceId = req.body.deviceId;
+        console.log(qrCodeStore);
         res.send({});
     });
 
@@ -97,10 +106,15 @@ app.get('/qr-code', checkSession, async (req: Request, res: Response) => {
         userId: req.session.user.id,
         sessionId: req.sessionID,
     };
-    const qrCodeId = v4();
+    const qrCodeId = Object
+        .keys(qrCodeStore)
+        .find(id => qrCodeStore[id].userId === req.session.user.id && !qrCodeStore[id].deviceId)
+        || v4();
 
-    qrCodeStore[qrCodeId] = qrCodeValue;
+    qrCodeStore[qrCodeId] = qrCodeStore[qrCodeId] ? { ...qrCodeStore[qrCodeId], ...qrCodeValue } : qrCodeValue;
     const generatedQrCode = await qrCode.toDataURL(qrCodeId);
+
+    console.log(qrCodeStore);
 
     res.render('qr-code', { code: generatedQrCode, username: req.session.user.email });
 });
@@ -110,6 +124,7 @@ app.get('/', (req: Request, res: Response) => {
         res.redirect('/qr-code');
         return;
     }
+    console.log(JSON.stringify(req.session), req.sessionID);
 
     res.render('index');
 })

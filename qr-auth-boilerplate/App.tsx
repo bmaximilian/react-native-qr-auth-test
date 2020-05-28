@@ -1,6 +1,6 @@
 import 'react-native-gesture-handler';
 import React, { useEffect, useState } from 'react';
-import { AppLoading } from 'expo';
+import { Container, Text } from 'native-base';
 import * as Font from 'expo-font';
 import { Ionicons } from '@expo/vector-icons';
 import { NavigationContainer } from '@react-navigation/native';
@@ -26,16 +26,19 @@ export default function App() {
         }).then(() => setReady(true));
     }, []);
 
-    if (!ready) {
-        return <AppLoading />;
-    }
-
     function handleReceivedAuthToken(token: string): void {
-        console.log(token);
         setAuthToken(token);
     }
 
     const isAuthenticated = authToken !== null;
+
+    if (!ready) {
+        return (
+            <Container>
+                <Text>Preparing App</Text>
+            </Container>
+        );
+    }
 
     return (
         <NavigationContainer>
