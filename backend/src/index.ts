@@ -39,10 +39,8 @@ function checkSession(req: Request<any, any, any, { token?: string; deviceId?: s
     const code = qrCodeStore[req.query.token];
     const user = database.users.find(u => u.id === code?.userId);
     if (req.query.token && code && code.deviceId === req.query.deviceId && user) {
-        console.log('Set user from token');
         req.session.user = user;
     }
-    console.log(req.session.user);
 
     if (!req.session.user) {
         res.redirect('/');
@@ -53,8 +51,6 @@ function checkSession(req: Request<any, any, any, { token?: string; deviceId?: s
 
 app.use('/api/v1', (() => {
     function login(email: string, password: string): object|undefined {
-        console.log(email, password, database.users);
-
         return database.users.find(u => u.email === email && u.password === password);
     }
     const router = express.Router();
@@ -64,7 +60,6 @@ app.use('/api/v1', (() => {
             res.status(422).send({ message: 'Email and password required' });
             return;
         }
-        console.log(JSON.stringify(req.session), req.sessionID);
 
         const user: any = login(req.body.email, req.body.password);
         if (!user) {
@@ -92,9 +87,7 @@ app.use('/api/v1', (() => {
             return;
         }
 
-        console.log(req.body.deviceId);
         qrCodeStore[req.body.code].deviceId = req.body.deviceId;
-        console.log(qrCodeStore);
         res.send({});
     });
 
@@ -114,8 +107,6 @@ app.get('/qr-code', checkSession, async (req: Request, res: Response) => {
     qrCodeStore[qrCodeId] = qrCodeStore[qrCodeId] ? { ...qrCodeStore[qrCodeId], ...qrCodeValue } : qrCodeValue;
     const generatedQrCode = await qrCode.toDataURL(qrCodeId);
 
-    console.log(qrCodeStore);
-
     res.render('qr-code', { code: generatedQrCode, username: req.session.user.email });
 });
 
@@ -124,7 +115,6 @@ app.get('/', (req: Request, res: Response) => {
         res.redirect('/qr-code');
         return;
     }
-    console.log(JSON.stringify(req.session), req.sessionID);
 
     res.render('index');
 })
