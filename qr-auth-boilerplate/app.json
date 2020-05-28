@@ -22,7 +22,12 @@
       "**/*"
     ],
     "ios": {
-      "supportsTablet": true
-    }
+      "supportsTablet": true,
+      "bundleIdentifier": "de.maximilianbeck.prototypes.qr-auth"
+    },
+    "android": {
+      "package": "de.maximilianbeck.prototypes.qr-auth"
+    },
+    "entryPoint": "node_modules/expo/AppEntry.js"
   }
 }
