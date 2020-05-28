@@ -16,7 +16,7 @@
     }
 </style>
 <body>
-<h1 class="page-title">You are logged in <%- include('partials/logout') -%></h1>
+<h1 class="page-title">Hello <%= username %> <%- include('partials/logout') -%></h1>
 <%- include('partials/qr-code', { image: code }) -%>
 </body>
 

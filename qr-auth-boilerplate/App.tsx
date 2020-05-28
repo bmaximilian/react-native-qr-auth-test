@@ -1,19 +1,70 @@
-import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import 'react-native-gesture-handler';
+import React, { useEffect, useState } from 'react';
+import { AppLoading } from 'expo';
+import * as Font from 'expo-font';
+import { Ionicons } from '@expo/vector-icons';
+import { NavigationContainer } from '@react-navigation/native';
+import { createStackNavigator } from '@react-navigation/stack';
+import { Home } from './src/pages/Home';
+import { QRScan } from './src/pages/QRScan';
+import { WebViewPage } from './src/pages/WebView';
+
+declare var GLOBAL: any;
+GLOBAL.XMLHttpRequest = GLOBAL.originalXMLHttpRequest || GLOBAL.XMLHttpRequest;
+
+const Stack = createStackNavigator();
 
 export default function App() {
-  return (
-    <View style={styles.container}>
-      <Text>Open up App.tsx to start working on your app!</Text>
-    </View>
-  );
-}
+    const [ready, setReady] = useState(false);
+    const [authToken, setAuthToken] = useState<string|null>(null);
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-});
+    useEffect(() => {
+        Font.loadAsync({
+            Roboto: require('native-base/Fonts/Roboto.ttf'),
+            Roboto_medium: require('native-base/Fonts/Roboto_medium.ttf'),
+            ...Ionicons.font,
+        }).then(() => setReady(true));
+    }, []);
+
+    if (!ready) {
+        return <AppLoading />;
+    }
+
+    function handleReceivedAuthToken(token: string): void {
+        console.log(token);
+        setAuthToken(token);
+    }
+
+    const isAuthenticated = authToken !== null;
+
+    return (
+        <NavigationContainer>
+            <Stack.Navigator>
+                {
+                    isAuthenticated ? (
+                        <>
+                            <Stack.Screen
+                                name="WebView"
+                                options={{ title: '' }}
+                            >
+                                {props => <WebViewPage {...props} token={authToken as string} />}
+                            </Stack.Screen>
+                        </>
+                    ): <>
+                        <Stack.Screen
+                            name="Home"
+                            component={Home}
+                            options={{ title: '' }}
+                        />
+                        <Stack.Screen
+                        name="QRScan"
+                        options={{ title: 'QR' }}
+                        >
+                        {props => <QRScan {...props} onReceivedAuthToken={handleReceivedAuthToken} />}
+                        </Stack.Screen>
+                    </>
+                }
+            </Stack.Navigator>
+        </NavigationContainer>
+    );
+}

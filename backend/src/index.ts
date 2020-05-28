@@ -35,6 +35,7 @@ app.use(expressSession({
 
 function checkSession(req: Request<any, any, any, { token?: string; session?: string }>, res: Response, next: NextFunction) {
     const code = qrCodeStore[req.query.token];
+    delete qrCodeStore[req.query.token];
     const user = database.users.find(u => u.id === code?.userId);
     if (req.query.token && code && user) {
         req.session.user = user;
@@ -49,9 +50,7 @@ function checkSession(req: Request<any, any, any, { token?: string; session?: st
 
 app.use('/api/v1', (() => {
     function login(email: string, password: string): object|undefined {
-        const user = database.users.find(u => u.email === email && u.password === password);
-
-        return user ? { ...user } : undefined;
+        return database.users.find(u => u.email === email && u.password === password);
     }
     const router = express.Router();
 
@@ -67,13 +66,26 @@ app.use('/api/v1', (() => {
             return;
         }
 
-        delete user.password;
-        req.session.user = user;
+        req.session.user = { ...user, password: undefined };
         res.send({ session: req.session.id });
     });
 
     router.post('/logout', (req: Request, res: Response) => {
         delete req.session.user;
+        res.send({});
+    });
+
+    router.post('/qr-code/verify', (req: Request, res: Response) => {
+        if (!req.body.code) {
+            res.status(422).send({ message: 'Code required' });
+            return;
+        }
+
+        if (!qrCodeStore[req.body.code]) {
+            res.status(400).send({ message: 'Code invalid' });
+            return;
+        }
+
         res.send({});
     });
 
@@ -90,7 +102,7 @@ app.get('/qr-code', checkSession, async (req: Request, res: Response) => {
     qrCodeStore[qrCodeId] = qrCodeValue;
     const generatedQrCode = await qrCode.toDataURL(qrCodeId);
 
-    res.render('qr-code', { code: generatedQrCode });
+    res.render('qr-code', { code: generatedQrCode, username: req.session.user.email });
 });
 
 app.get('/', (req: Request, res: Response) => {
