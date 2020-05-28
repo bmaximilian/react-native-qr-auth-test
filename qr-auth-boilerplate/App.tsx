@@ -43,6 +43,11 @@ export default function App() {
         setAuthToken(token);
     }
 
+    async function handleLogout(): Promise<void> {
+        await AsyncStorage.removeItem('qr-auth-boilerplate:auth-token');
+        setAuthToken(null);
+    }
+
     const isAuthenticated = authToken !== null;
 
     if (!ready) {
@@ -63,7 +68,7 @@ export default function App() {
                                 name="WebView"
                                 options={{ title: '' }}
                             >
-                                {props => <WebViewPage {...props} token={authToken as string} />}
+                                {props => <WebViewPage {...props} token={authToken as string} onLogout={handleLogout} />}
                             </Stack.Screen>
                         </>
                     ): <>

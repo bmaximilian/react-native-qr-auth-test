@@ -1,10 +1,12 @@
 <form id="logout-form">
-    <button class="mdl-button mdl-js-button mdl-button--raised mdl-button--colored" type="submit">
+    <button class="mdl-button mdl-js-button mdl-button--raised mdl-button--colored" type="submit" id="logout-btn">
         Logout
     </button>
 </form>
 
 <script>
+    $('#logout-btn').text(`Logout ${window.__IS_MOBILE__ ? 'mobile' : 'desktop'}`);
+
     $('#logout-form').on('submit', (e) => {
         e.preventDefault();
 
@@ -20,7 +22,11 @@
             return res.json();
         })
         .then(() => {
-            window.location.reload();
+            if (window.__IS_MOBILE__) {
+                window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'LOGOUT' }));
+            } else {
+                window.location.reload();
+            }
         })
         .catch(console.log);
     });

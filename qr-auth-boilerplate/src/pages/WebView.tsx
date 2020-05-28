@@ -1,10 +1,11 @@
 import { Container } from 'native-base';
 import React from 'react';
-import { WebView } from 'react-native-webview';
+import { WebView, WebViewMessageEvent } from 'react-native-webview';
 import { getUniqueId } from 'react-native-device-info';
 
 interface WebViewPageProps {
     token: string;
+    onLogout: () => void;
 }
 
 export function WebViewPage(props: WebViewPageProps): JSX.Element {
@@ -13,7 +14,21 @@ export function WebViewPage(props: WebViewPageProps): JSX.Element {
     meta.setAttribute('content', 'width=device-width, initial-scale=1.0, maximum-scale=1.0');
     meta.setAttribute('name', 'viewport');
     document.getElementsByTagName('head')[0].appendChild(meta);
+    window.isReactNativeApp = true;
+    true;
     `;
+
+    function handleMessage(event: WebViewMessageEvent) {
+        const data: { type: string } = JSON.parse(event.nativeEvent.data);
+
+        switch (data.type) {
+            case 'LOGOUT':
+                props.onLogout();
+                break;
+            default:
+                break;
+        }
+    }
 
     return (
         <Container>
@@ -29,6 +44,7 @@ export function WebViewPage(props: WebViewPageProps): JSX.Element {
                 cacheEnabled
                 sharedCookiesEnabled
                 allowFileAccessFromFileURLs
+                onMessage={handleMessage}
             />
         </Container>
     )

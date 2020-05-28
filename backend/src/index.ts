@@ -41,6 +41,7 @@ function checkSession(req: Request<any, any, any, { token?: string; deviceId?: s
     const user = database.users.find(u => u.id === code?.userId);
     if (req.query.token && code && code.deviceId === req.query.deviceId && user) {
         req.session.user = user;
+        req.session.deviceId = code.deviceId;
     }
 
     if (!req.session.user) {
@@ -73,8 +74,18 @@ app.use('/api/v1', (() => {
     });
 
     router.post('/logout', (req: Request, res: Response) => {
-        delete req.session.user;
-        res.send({});
+        // Invalidate tokens that belong to the device that wants to logout
+        if (req.session.deviceId) {
+            const tokens = Object.keys(qrCodeStore).filter(key => (
+                qrCodeStore[key].deviceId === req.session.deviceId
+                && qrCodeStore[key].userId === req.session.user.id
+            ));
+            tokens.forEach((key) => {
+                delete qrCodeStore[key];
+            });
+        }
+
+        req.session.destroy(() => res.send({}));
     });
 
     router.post('/qr-code/verify', (req: Request, res: Response) => {
@@ -114,9 +125,11 @@ app.get('/qr-code', checkSession, async (req: Request, res: Response) => {
     qrCodeStore[qrCodeId] = qrCodeStore[qrCodeId] ? { ...qrCodeStore[qrCodeId], ...qrCodeValue } : qrCodeValue;
     const generatedQrCode = await qrCode.toDataURL(qrCodeId);
 
-    console.log(qrCodeStore);
-
-    res.render('qr-code', { code: generatedQrCode, username: req.session.user.email });
+    res.render('qr-code', {
+        code: generatedQrCode,
+        username: req.session.user.email,
+        deviceId: req.session.deviceId,
+    });
 });
 
 app.get('/', (req: Request, res: Response) => {
