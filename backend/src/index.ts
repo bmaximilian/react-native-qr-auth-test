@@ -30,8 +30,9 @@ app.use(expressSession({
     resave: false,
     saveUninitialized: true,
     cookie: {
-        expires: new Date(new Date().getTime() + 60000),
-        maxAge: 60000,
+        expires: new Date(new Date().getTime() + 1000 * 60 * 120),
+        // 120 Minutes
+        maxAge: 1000 * 60 * 120,
     },
 }));
 
@@ -82,12 +83,15 @@ app.use('/api/v1', (() => {
             return;
         }
 
-        if (!qrCodeStore[req.body.code] || qrCodeStore[req.body.code].deviceId) {
+        const code = qrCodeStore[req.body.code];
+
+        if (!code || (code.deviceId && code.deviceId !== req.body.deviceId)) {
             res.status(400).send({ message: 'Code invalid' });
             return;
         }
 
         qrCodeStore[req.body.code].deviceId = req.body.deviceId;
+        req.session.deviceId = req.body.deviceId;
         res.send({});
     });
 
@@ -101,11 +105,16 @@ app.get('/qr-code', checkSession, async (req: Request, res: Response) => {
     };
     const qrCodeId = Object
         .keys(qrCodeStore)
-        .find(id => qrCodeStore[id].userId === req.session.user.id && !qrCodeStore[id].deviceId)
+        .find(id => (
+            qrCodeStore[id].userId === req.session.user.id
+            && (!qrCodeStore[id].deviceId || (req.session.deviceId && qrCodeStore[id].deviceId === req.session.deviceId))
+        ))
         || v4();
 
     qrCodeStore[qrCodeId] = qrCodeStore[qrCodeId] ? { ...qrCodeStore[qrCodeId], ...qrCodeValue } : qrCodeValue;
     const generatedQrCode = await qrCode.toDataURL(qrCodeId);
+
+    console.log(qrCodeStore);
 
     res.render('qr-code', { code: generatedQrCode, username: req.session.user.email });
 });
