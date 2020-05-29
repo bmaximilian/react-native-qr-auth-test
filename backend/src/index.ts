@@ -39,8 +39,10 @@ app.use(expressSession({
 function checkSession(req: Request<any, any, any, { token?: string; deviceId?: string }>, res: Response, next: NextFunction) {
     const code = qrCodeStore[req.query.token];
     const user = database.users.find(u => u.id === code?.userId);
+    // Log user in if a valid token is passed
     if (req.query.token && code && code.deviceId === req.query.deviceId && user) {
         req.session.user = user;
+        // Link session with device
         req.session.deviceId = code.deviceId;
     }
 
@@ -101,6 +103,7 @@ app.use('/api/v1', (() => {
             return;
         }
 
+        // Link token with device
         qrCodeStore[req.body.code].deviceId = req.body.deviceId;
         req.session.deviceId = req.body.deviceId;
         res.send({});
@@ -114,12 +117,11 @@ app.get('/qr-code', checkSession, async (req: Request, res: Response) => {
         userId: req.session.user.id,
         sessionId: req.sessionID,
     };
+
+    // Find QR-Code for user that is not linked with a device or generate a new one
     const qrCodeId = Object
         .keys(qrCodeStore)
-        .find(id => (
-            qrCodeStore[id].userId === req.session.user.id
-            && (!qrCodeStore[id].deviceId || (req.session.deviceId && qrCodeStore[id].deviceId === req.session.deviceId))
-        ))
+        .find(id => (qrCodeStore[id].userId === req.session.user.id && !qrCodeStore[id].deviceId))
         || v4();
 
     qrCodeStore[qrCodeId] = qrCodeStore[qrCodeId] ? { ...qrCodeStore[qrCodeId], ...qrCodeValue } : qrCodeValue;
@@ -133,6 +135,7 @@ app.get('/qr-code', checkSession, async (req: Request, res: Response) => {
 });
 
 app.get('/', (req: Request, res: Response) => {
+    // Redirect to qrCode screen if logged in
     if (req.session.user && database.users.find(u => u.id === req.session.user.id)) {
         res.redirect('/qr-code');
         return;
