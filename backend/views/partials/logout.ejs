@@ -21,13 +21,7 @@
 
             return res.json();
         })
-        .then(() => {
-            if (window.__IS_MOBILE__) {
-                window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'LOGOUT' }));
-            } else {
-                window.location.reload();
-            }
-        })
+        .then(authService.logout)
         .catch(console.log);
     });
 </script>

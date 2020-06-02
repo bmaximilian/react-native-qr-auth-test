@@ -9,7 +9,40 @@
     <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js" integrity="sha256-4+XzXVhsDmqanXGHaHvgh1gMQKX40OUvDEBTu8JcmNs=" crossorigin="anonymous"></script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <script>
+        // Set global __IS_MOBILE__ flag from backend variable
         window.__IS_MOBILE__ = <%= Boolean(deviceId) %>;
+
+        // Polyfill ReactNativeWebView delegating to postMessage
+        // (could also be empty function if no communication is wished when app is served via desktop)
+        window.ReactNativeWebView = window.ReactNativeWebView || {
+            postMessage(message) {
+                window.postMessage(message, '*');
+            }
+        }
+
+        // "Normal" Auth service
+        function AuthService() {}
+        AuthService.prototype.logout = function() {
+            window.location.reload();
+        }
+
+        // "New" Auth service for mobile interactions
+        function MobileAuthService() {} // could also extend AuthService with following code:
+        // MobileAuthService.prototype = Object.create(AuthService.prototype);
+        // MobileAuthService.prototype.constructor = MobileAuthService;
+        MobileAuthService.prototype.logout = function() {
+            window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'LOGOUT' }));
+        }
+
+        // Delegator class that delegates between AuthService and MobileAuthService
+        function AuthServiceDelegator() { // implements AuthService
+            this.authService = window.__IS_MOBILE__ ? new MobileAuthService() : new AuthService();
+        }
+        AuthServiceDelegator.prototype.logout = function() {
+            return this.authService.logout();
+        }
+
+        window.authService = new AuthServiceDelegator();
     </script>
 </head>
 <style>
